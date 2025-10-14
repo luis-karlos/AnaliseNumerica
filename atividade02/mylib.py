@@ -178,12 +178,71 @@ def metodo_rk2(func, condicao_inicial, T, dt):
         ti = t_out[i]
         yi = y_out[i]
 
-        # Cálculo dos k1 e k2
         f1 = dt*func(ti, yi)
         f2 = dt*func(ti + dt, yi + f1)
 
         # Fórmula do método de Runge-Kutta de ordem 2
-        y_out[i + 1] = yi + (dt / 2) * (f1 + f2)
+        y_out[i + 1] = yi + (1 / 2) * (f1 + f2)
+
+        # Atualiza o vetor de tempo
+        t_out[i + 1] = ti + dt
+
+    return t_out, y_out
+
+def metodo_rk3(func, condicao_inicial, T, dt):
+    """
+    Resolve um PVI usando o método de Runge-Kutta de ordem 3.
+
+    Parameters
+    ----------
+    func : callable
+        Função f(t, x) do problema.
+    condicao_inicial : list or tuple
+        [t0, x0] condição inicial.
+    T : float
+        Tempo final.
+    dt : float
+        Passo de integração.
+
+    Returns
+    -------
+    t_out : ndarray
+        Vetor de tempos.
+    y_out : ndarray
+        Vetor de soluções aproximadas.
+    """
+    t0 = condicao_inicial[0]
+    y0 = condicao_inicial[1]
+
+    n = int((T - t0) / dt)
+
+    t_out = np.zeros(n + 1)
+    y_out = np.zeros(n + 1)
+
+    # Define o primeiro ponto da solução (a condição inicial)
+    t_out[0] = t0
+    y_out[0] = y0
+
+    A = np.array([
+        [0,   0,   0],
+        [0.5, 0,   0],
+        [-1,  2,   0]
+    ])
+    B = np.array([1/6, 4/6, 1/6])
+    C = np.array([0, 0.5, 1])
+
+    for i in range(n):
+        # Pega os valores do passo anterior (usando o índice i)
+        ti = t_out[i]
+        yi = y_out[i]
+
+        f = np.zeros(len(C))
+        for j in range(len(C)):
+            tj = ti + C[j]*dt
+            yj = yi + np.dot(A[j, :j], f[:j])
+            f[j] = dt * func(tj, yj)
+
+        y_out[i + 1] = yi + np.dot(B, f)
 
         # Atualiza o vetor de tempo
         t_out[i + 1] = ti + dt
@@ -302,9 +361,73 @@ def metodo_rk4(func, condicao_inicial, T, dt):
 
     return t_out, y_out
 
-def metodo_rk45(func, condicao_inicial, T, dt0, tol=1e-6, metodo='RKF45'):
+def metodo_rk6(func, condicao_inicial, T, dt):
     """
-    Resolve um PVI usando métodos Runge-Kutta de ordem 4(5) com passo adaptativo.
+    Resolve um PVI usando o método de Runge-Kutta de ordem 6.
+
+    Parameters
+    ----------
+    func : callable
+        Função f(t, x) do problema.
+    condicao_inicial : list or tuple
+        [t0, x0] condição inicial.
+    T : float
+        Tempo final.
+    dt : float
+        Passo de integração.
+
+    Returns
+    -------
+    t_out : ndarray
+        Vetor de tempos.
+    y_out : ndarray
+        Vetor de soluções aproximadas.
+    """
+    t0 = condicao_inicial[0]
+    y0 = condicao_inicial[1]
+
+    n = int(np.ceil((T - t0) / dt))
+
+    t_out = np.zeros(n + 1)
+    y_out = np.zeros(n + 1)
+
+    # Define o primeiro ponto da solução (a condição inicial)
+    t_out[0] = t0
+    y_out[0] = y0
+
+    A = np.array([
+        [0, 0, 0, 0, 0, 0, 0],
+        [1/3, 0, 0, 0, 0, 0, 0],
+        [0, 2/3, 0, 0, 0, 0, 0],
+        [1/12, 1/3, -1/12, 0, 0, 0, 0],
+        [-1/16, 9/8, -3/16, -3/8, 0, 0, 0],
+        [0, 9/8, -3/8, -3/4, 1/2, 0, 0],
+        [9/44, -9/11, 63/44, 18/11, 0, -16/11, 0]
+    ])
+    B = np.array([11/120, 0, 27/40, 27/40, -4/15, -4/15, 11/120])
+    C = np.array([0.0, 1/3, 2/3, 1/3, 1/2, 1/2, 1])
+
+    for i in range(n):
+        # Pega os valores do passo anterior (usando o índice i)
+        ti = t_out[i]
+        yi = y_out[i]
+
+        f = np.zeros(len(C))
+        for j in range(len(C)):
+            tj = ti + C[j]*dt
+            yj = yi + np.dot(A[j, :j], f[:j])
+            f[j] = dt * func(tj, yj)
+
+        y_out[i + 1] = yi + np.dot(B, f)
+
+        # Atualiza o vetor de tempo
+        t_out[i + 1] = ti + dt
+
+    return t_out, y_out
+
+def metodo_rk(func, condicao_inicial, T, dt0, tol=1e-6, metodo='RKF45'):
+    """
+    Resolve um PVI usando métodos Runge-Kutta com passo adaptativo.
 
     Permite escolher entre os métodos de Fehlberg (RKF45) ou Dormand-Prince (DOPRI54).
     Utiliza as matrizes de coeficientes A, B4, B5 e C para calcular as etapas intermediárias
@@ -339,6 +462,7 @@ def metodo_rk45(func, condicao_inicial, T, dt0, tol=1e-6, metodo='RKF45'):
     t0 = condicao_inicial[0]
     y0 = condicao_inicial[1]
     n = 0
+    ite = 0
 
     t_out = [t0]
     y_out = [y0]
@@ -393,7 +517,7 @@ def metodo_rk45(func, condicao_inicial, T, dt0, tol=1e-6, metodo='RKF45'):
         # Controle adaptativo do passo
         i = 0
         while erro >= tol and i < 10:
-            dt = .9 * dt * (tol / erro)**(1/4 + 1) # Kincaid e Cheney 
+            dt = .9 * dt * (tol / erro)**(1/5) # Kincaid e Cheney 
             if t + dt > T:
                 dt = T - t
 
@@ -547,9 +671,9 @@ def metodo_ab2(func, condicao_inicial, T, dt):
     t_out[0] = t0
     y_out[0] = y0
 
-    # Primeiro passo usando Euler explícito
+    # Primeiro passo usando rk4
     t_out[1] = t_out[0] + dt
-    y_out[1] = metodo_rk2_modificado(func, condicao_inicial, t_out[1], dt)[1][1]
+    y_out[1] = metodo_rk4(func, [t_out[0], y_out[0]], t_out[1], dt)[1][1]
 
     for i in range(1, n):
         ti = t_out[i]
@@ -559,6 +683,204 @@ def metodo_ab2(func, condicao_inicial, T, dt):
 
         # Fórmula do método de Adams-Bashforth de ordem 2
         y_out[i + 1] = yi + (dt / 2) * (3*func(ti, yi) - func(t_ant, y_ant))
+
+        # Atualiza o vetor de tempo
+        t_out[i + 1] = ti + dt
+
+    return t_out, y_out
+
+def metodo_ab3(func, condicao_inicial, T, dt):
+    """
+    Resolve um PVI usando o método de Adams-Bashforth de ordem 3.
+
+    Parameters
+    ----------
+    func : callable
+        Função f(t, x) do problema.
+    condicao_inicial : list or tuple
+        [t0, x0] condição inicial.
+    T : float
+        Tempo final.
+    dt : float
+        Passo de integração.
+
+    Returns
+    -------
+    t_out : ndarray
+        Vetor de tempos.
+    y_out : ndarray
+        Vetor de soluções aproximadas.
+    """
+    t0 = condicao_inicial[0]
+    y0 = condicao_inicial[1]
+
+    n = int((T - t0) / dt)
+
+    t_out = np.zeros(n + 1)
+    y_out = np.zeros(n + 1)
+
+    # Define o primeiro ponto da solução (a condição inicial)
+    t_out[0] = t0
+    y_out[0] = y0
+
+    # Primeiro passo usando RK4
+    t_out[1] = t_out[0] + dt
+    y_out[1] = metodo_rk6(func, [t_out[0], y_out[0]], t_out[1], dt)[1][1]
+
+    # Segundo passo usando RK4
+    t_out[2] = t_out[1] + dt
+    y_out[2] = metodo_rk6(func, [t_out[1], y_out[1]], t_out[2], dt)[1][1]
+
+    for i in range(2, n):
+        ti = t_out[i]
+        yi = y_out[i]
+        t_ant1 = t_out[i - 1]
+        y_ant1 = y_out[i - 1]
+        t_ant2 = t_out[i - 2]
+        y_ant2 = y_out[i - 2]
+
+        # Fórmula do método de Adams-Bashforth de ordem 3
+        y_out[i + 1] = yi + (dt / 12) * (23*func(ti, yi) - 16*func(t_ant1, y_ant1) + 5*func(t_ant2, y_ant2))
+
+        # Atualiza o vetor de tempo
+        t_out[i + 1] = ti + dt
+
+    return t_out, y_out
+
+def metodo_ab4(func, condicao_inicial, T, dt):
+    """
+    Resolve um PVI usando o método de Adams-Bashforth de ordem 4.
+
+    Parameters
+    ----------
+    func : callable
+        Função f(t, x) do problema.
+    condicao_inicial : list or tuple
+        [t0, x0] condição inicial.
+    T : float
+        Tempo final.
+    dt : float
+        Passo de integração.
+
+    Returns
+    -------
+    t_out : ndarray
+        Vetor de tempos.
+    y_out : ndarray
+        Vetor de soluções aproximadas.
+    """
+    t0 = condicao_inicial[0]
+    y0 = condicao_inicial[1]
+
+    n = int((T - t0) / dt)
+
+    t_out = np.zeros(n + 1)
+    y_out = np.zeros(n + 1)
+
+    # Define o primeiro ponto da solução (a condição inicial)
+    t_out[0] = t0
+    y_out[0] = y0
+
+    # Primeiro passo usando RK4
+    t_out[1] = t_out[0] + dt
+    y_out[1] = metodo_rk6(func, [t_out[0], y_out[0]], t_out[1], dt)[1][1]
+
+    # Segundo passo usando RK4
+    t_out[2] = t_out[1] + dt
+    y_out[2] = metodo_rk6(func, [t_out[1], y_out[1]], t_out[2], dt)[1][1]
+
+    # Terceiro passo usando RK4
+    t_out[3] = t_out[2] + dt
+    y_out[3] = metodo_rk6(func, [t_out[2], y_out[2]], t_out[3], dt)[1][1]
+
+    for i in range(3, n):
+        ti = t_out[i]
+        yi = y_out[i]
+        t_ant1 = t_out[i - 1]
+        y_ant1 = y_out[i - 1]
+        t_ant2 = t_out[i - 2]
+        y_ant2 = y_out[i - 2]
+        t_ant3 = t_out[i - 3]
+        y_ant3 = y_out[i - 3]
+
+        # Fórmula do método de Adams-Bashforth de ordem 4
+        y_out[i + 1] = yi + (dt / 24) * (55*func(ti, yi) - 59*func(t_ant1, y_ant1) + 37*func(t_ant2, y_ant2) - 9*func(t_ant3, y_ant3))
+
+        # Atualiza o vetor de tempo
+        t_out[i + 1] = ti + dt
+
+    return t_out, y_out
+
+def metodo_ab6(func, condicao_inicial, T, dt):
+    """
+    Resolve um PVI usando o método de Adams-Bashforth de ordem 6.
+
+    Parameters
+    ----------
+    func : callable
+        Função f(t, x) do problema.
+    condicao_inicial : list or tuple
+        [t0, x0] condição inicial.
+    T : float
+        Tempo final.
+    dt : float
+        Passo de integração.
+
+    Returns
+    -------
+    t_out : ndarray
+        Vetor de tempos.
+    y_out : ndarray
+        Vetor de soluções aproximadas.
+    """
+    t0 = condicao_inicial[0]
+    y0 = condicao_inicial[1]
+
+    n = int((T - t0) / dt)
+
+    t_out = np.zeros(n + 1)
+    y_out = np.zeros(n + 1)
+
+    # Define o primeiro ponto da solução (a condição inicial)
+    t_out[0] = t0
+    y_out[0] = y0
+
+    # Primeiro passo usando RK4
+    t_out[1] = t_out[0] + dt
+    y_out[1] = metodo_rk6(func, [t_out[0], y_out[0]], t_out[1], dt)[1][1]
+
+    # Segundo passo usando RK4
+    t_out[2] = t_out[1] + dt
+    y_out[2] = metodo_rk6(func, [t_out[1], y_out[1]], t_out[2], dt)[1][1]
+
+    # Terceiro passo usando RK4
+    t_out[3] = t_out[2] + dt
+    y_out[3] = metodo_rk6(func, [t_out[2], y_out[2]], t_out[3], dt)[1][1]
+
+    # Quarto passo usando RK4
+    t_out[4] = t_out[3] + dt
+    y_out[4] = metodo_rk6(func, [t_out[3], y_out[3]], t_out[4], dt)[1][1]
+
+    # Quinto passo usando RK4
+    t_out[5] = t_out[4] + dt
+    y_out[5] = metodo_rk6(func, [t_out[4], y_out[4]], t_out[5], dt)[1][1]
+
+    for i in range(5, n):
+        ti = t_out[i]
+        yi = y_out[i]
+        t_ant1 = t_out[i - 1]
+        y_ant1 = y_out[i - 1]
+        t_ant2 = t_out[i - 2]
+        y_ant2 = y_out[i - 2]
+        t_ant3 = t_out[i - 3]
+        y_ant3 = y_out[i - 3]
+        t_ant4 = t_out[i - 4]
+        y_ant4 = y_out[i - 4]
+        t_ant5 = t_out[i - 5]
+        y_ant5 = y_out[i - 5]
+
+        # Fórmula do método de Adams-Bashforth de ordem 6
+        y_out[i + 1] = yi + (dt / 1440) * (4277*func(ti, yi) - 7923*func(t_ant1, y_ant1) + 9982*func(t_ant2, y_ant2) - 7298*func(t_ant3, y_ant3) + 2877*func(t_ant4, y_ant4) - 475*func(t_ant5, y_ant5))
 
         # Atualiza o vetor de tempo
         t_out[i + 1] = ti + dt
